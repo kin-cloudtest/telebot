@@ -91,14 +91,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = user.id
     first_name = user.first_name or "there"
 
-    if is_returning_user(user_id):
-        await update.message.reply_text(
-            f"👋 Welcome back, {first_name}! Great to see you again.\n\n"
-            "Send me your Shopee links and I'll convert them for you 🛍️"
-        )
-    else:
+    if not is_returning_user(user_id):
         save_user(user_id, first_name)
-        await update.message.reply_text(
+    await update.message.reply_text(
             "⚡ kinbot activated ⚡\n\n"
             "send me up to 5 shopee links each time.\n\n"
             "exclusive vouchers apply to:\n"
