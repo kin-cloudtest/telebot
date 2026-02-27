@@ -7,19 +7,14 @@ import requests
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, CommandHandler, filters, ContextTypes
 
-# ── Config (loaded from environment variables) ──────────────────────────────
+# ── Config ───────────────────────────────────────────────────────────────────
 TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
 SHOPEE_APP_ID   = os.environ["SHOPEE_APP_ID"]
 SHOPEE_SECRET   = os.environ["SHOPEE_SECRET"]
 
-# ── Shopee Affiliate API ─────────────────────────────────────────────────────
 SHOPEE_API_URL = "https://open-api.affiliate.shopee.sg/graphql"
 
 def generate_auth_header(app_id: str, secret: str, payload: str) -> dict:
-    """
-    Shopee Affiliate API signature formula:
-    Signature = SHA256(AppId + Timestamp + Payload + Secret)
-    """
     timestamp = str(int(time.time()))
     raw = f"{app_id}{timestamp}{payload}{secret}"
     signature = hashlib.sha256(raw.encode()).hexdigest()
@@ -29,48 +24,34 @@ def generate_auth_header(app_id: str, secret: str, payload: str) -> dict:
     }
 
 def convert_to_affiliate_link(original_url: str) -> str | None:
-    query = """
-    mutation generateShortLink($input: GenerateShortLinkInput!) {
-        generateShortLink(input: $input) {
+    # Use inline arguments instead of typed variables
+    query = f"""
+    mutation {{
+        generateShortLink(
+            input: {{
+                originUrl: "{original_url}"
+                subIds: ["tgbot"]
+            }}
+        ) {{
             shortLink
-            longLink
-        }
-    }
+        }}
+    }}
     """
-    variables = {
-        "input": {
-            "originUrl": original_url,
-            "subId": "tgbot"
-        }
-    }
+    body = json.dumps({"query": query}, separators=(',', ':'))
 
-    # The payload used in the signature is the raw JSON request body
-    body = json.dumps({"query": query, "variables": variables}, separators=(',', ':'))
-    
     try:
         headers = generate_auth_header(SHOPEE_APP_ID, SHOPEE_SECRET, body)
         print(f"[DEBUG] Converting URL: {original_url}")
-        response = requests.post(
-            SHOPEE_API_URL,
-            data=body,
-            headers=headers,
-            timeout=15
-        )
-        print(f"[DEBUG] API status code: {response.status_code}")
+        response = requests.post(SHOPEE_API_URL, data=body, headers=headers, timeout=15)
+        print(f"[DEBUG] API status: {response.status_code}")
         print(f"[DEBUG] API response: {response.text}")
         data = response.json()
         return data["data"]["generateShortLink"]["shortLink"]
-    except requests.exceptions.ConnectionError as e:
-        print(f"[ERROR] Connection error: {e}")
-        return None
-    except requests.exceptions.Timeout:
-        print(f"[ERROR] Request timed out")
-        return None
     except KeyError as e:
-        print(f"[ERROR] Unexpected API response structure, missing key: {e}")
+        print(f"[ERROR] Missing key in response: {e}")
         return None
     except Exception as e:
-        print(f"[ERROR] Unexpected error: {type(e).__name__}: {e}")
+        print(f"[ERROR] {type(e).__name__}: {e}")
         return None
 
 # ── Link Detection ───────────────────────────────────────────────────────────
