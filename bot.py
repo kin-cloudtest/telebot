@@ -39,16 +39,19 @@ def convert_to_affiliate_link(original_url: str) -> str | None:
     variables = {
         "input": {
             "originUrl": original_url,
-            "subId": "tgbot"  # optional tracking sub-ID — you can change this
+            "subId": "tgbot"
         }
     }
     try:
+        print(f"[DEBUG] Converting URL: {original_url}")
         response = requests.post(
             SHOPEE_API_URL,
             json={"query": query, "variables": variables},
             headers=headers,
             timeout=10
         )
+        print(f"[DEBUG] API status code: {response.status_code}")
+        print(f"[DEBUG] API response: {response.text}")
         data = response.json()
         return data["data"]["generateShortLink"]["shortLink"]
     except Exception as e:
@@ -57,7 +60,7 @@ def convert_to_affiliate_link(original_url: str) -> str | None:
 
 # ── Link Detection ───────────────────────────────────────────────────────────
 SHOPEE_PATTERN = re.compile(
-    r"https?://(?:www\.)?"
+    r"https?://(?:[\w.-]+\.)?"
     r"(?:shopee\.sg|shp\.ee)"
     r"[^\s]*",
     re.IGNORECASE
@@ -77,7 +80,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not message or not message.text:
         return
 
+    print(f"[DEBUG] Received message: {message.text}")
     links = find_shopee_links(message.text)
+    print(f"[DEBUG] Found links: {links}")
     if not links:
         return  # Ignore messages without Shopee links
 
