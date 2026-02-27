@@ -1,8 +1,8 @@
 import os
 import re
-import hmac
 import hashlib
 import time
+import json
 import requests
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, CommandHandler, filters, ContextTypes
@@ -15,23 +15,20 @@ SHOPEE_SECRET   = os.environ["SHOPEE_SECRET"]
 # ── Shopee Affiliate API ─────────────────────────────────────────────────────
 SHOPEE_API_URL = "https://open-api.affiliate.shopee.sg/graphql"
 
-def generate_auth_header(app_id: str, secret: str) -> dict:
+def generate_auth_header(app_id: str, secret: str, payload: str) -> dict:
+    """
+    Shopee Affiliate API signature formula:
+    Signature = SHA256(AppId + Timestamp + Payload + Secret)
+    """
     timestamp = str(int(time.time()))
-    payload = f"{app_id}{timestamp}"
-    signature = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
+    raw = f"{app_id}{timestamp}{payload}{secret}"
+    signature = hashlib.sha256(raw.encode()).hexdigest()
     return {
         "Content-Type": "application/json",
         "Authorization": f"SHA256 Credential={app_id},Timestamp={timestamp},Signature={signature}"
     }
 
 def convert_to_affiliate_link(original_url: str) -> str | None:
-    try:
-        headers = generate_auth_header(SHOPEE_APP_ID, SHOPEE_SECRET)
-        print(f"[DEBUG] Headers: {headers}")
-    except Exception as e:
-        print(f"[ERROR] Failed to generate auth header: {e}")
-        return None
-
     query = """
     mutation generateShortLink($input: GenerateShortLinkInput!) {
         generateShortLink(input: $input) {
@@ -46,27 +43,34 @@ def convert_to_affiliate_link(original_url: str) -> str | None:
             "subId": "tgbot"
         }
     }
+
+    # The payload used in the signature is the raw JSON request body
+    body = json.dumps({"query": query, "variables": variables}, separators=(',', ':'))
+    
     try:
+        headers = generate_auth_header(SHOPEE_APP_ID, SHOPEE_SECRET, body)
         print(f"[DEBUG] Converting URL: {original_url}")
         response = requests.post(
             SHOPEE_API_URL,
-            json={"query": query, "variables": variables},
+            data=body,
             headers=headers,
-            timeout=10
+            timeout=15
         )
         print(f"[DEBUG] API status code: {response.status_code}")
         print(f"[DEBUG] API response: {response.text}")
         data = response.json()
-        short_link = data["data"]["generateShortLink"]["shortLink"]
-        return short_link
+        return data["data"]["generateShortLink"]["shortLink"]
+    except requests.exceptions.ConnectionError as e:
+        print(f"[ERROR] Connection error: {e}")
+        return None
+    except requests.exceptions.Timeout:
+        print(f"[ERROR] Request timed out")
+        return None
     except KeyError as e:
         print(f"[ERROR] Unexpected API response structure, missing key: {e}")
         return None
-    except requests.exceptions.RequestException as e:
-        print(f"[ERROR] HTTP request failed: {e}")
-        return None
     except Exception as e:
-        print(f"[ERROR] Unexpected error: {e}")
+        print(f"[ERROR] Unexpected error: {type(e).__name__}: {e}")
         return None
 
 # ── Link Detection ───────────────────────────────────────────────────────────
