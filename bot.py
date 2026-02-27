@@ -5,6 +5,7 @@ import time
 import json
 import requests
 from telegram import Update
+from telegram.constants import ParseMode
 from telegram.ext import ApplicationBuilder, MessageHandler, CommandHandler, filters, ContextTypes
 
 # ── Config ───────────────────────────────────────────────────────────────────
@@ -98,11 +99,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         save_user(user_id, first_name)
         await update.message.reply_text(
-            "⚡ Kinbot activated.\n"
-            "Send me up to 5 Shopee links each time.\n\n"
-            "Exclusive vouchers apply to:\n"
-            "• Blue cashback label items\n"
-            "• Minimum spend required"
+            "⚡ kinbot activated ⚡\n\n"
+            "send me up to 5 shopee links each time.\n\n"
+            "exclusive vouchers apply to:\n"
+            "• blue cashback label items\n"
+            "• min spend must be met"
         )
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -114,7 +115,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not links:
         await message.reply_text(
             "Kinbot specialises in Shopee link conversions. "
-            "Please send a valid link or you can speak to the real Kin at @thegoodlist 😊"
+            "Please send a valid link or you can speak to the real Kin at [thegoodlist](https://t.me/+T13IKhLCbxxmZDk1) 😊",
+            parse_mode=ParseMode.MARKDOWN
         )
         return
 
@@ -122,7 +124,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await message.reply_text("⚠️ Please send up to 5 links at a time!")
         return
 
-    await message.reply_text("⏳ Converting your link...")
+    await message.reply_text("converting your link...")
 
     reply_lines = []
     for link in links:
@@ -133,11 +135,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_lines.append(f"⚠️ Could not convert: {link}")
 
     if reply_lines:
-        converted = "\n\n".join(reply_lines)
+        converted = "\n".join(reply_lines)
         await message.reply_text(
-            f"— link converted —\n\n"
+            f"💌 here's your converted link(s)\n\n"
             f"{converted}\n\n"
-            "If you have more links, send it to me when you are ready. I've got you 😉"
+            "<i>you've unlocked the exclusive pricing!</i>\n\n"
+            "p.s. if the voucher doesn't show, remove the item from your cart, click into the link again then add to cart",
+            parse_mode=ParseMode.HTML
         )
 
 # ── Main ─────────────────────────────────────────────────────────────────────
