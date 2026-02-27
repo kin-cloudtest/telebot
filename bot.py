@@ -109,9 +109,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     links = find_shopee_links(message.text)
     if not links:
         await message.reply_text(
-            "Kinbot specialises in Shopee link conversions. "
-            "Please send a valid link or you can speak to the real Kin at [thegoodlist](https://t.me/+T13IKhLCbxxmZDk1) 😊",
-            parse_mode=ParseMode.MARKDOWN
+            "at the moment, kinbot only specialises in shopee link conversions.\n\n"
+            "please send a valid link or speak to the real Kin at <a href=\"https://t.me/+T13IKhLCbxxmZDk1\">@thegoodlist</a> 😊",
+            parse_mode=ParseMode.HTML
         )
         return
 
