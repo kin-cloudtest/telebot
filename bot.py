@@ -25,7 +25,6 @@ def supabase_headers() -> dict:
     }
 
 def is_returning_user(user_id: int) -> bool:
-    """Check if user already exists in the database."""
     res = requests.get(
         f"{SUPABASE_URL}/rest/v1/users?user_id=eq.{user_id}&select=user_id",
         headers=supabase_headers(),
@@ -34,7 +33,6 @@ def is_returning_user(user_id: int) -> bool:
     return len(res.json()) > 0
 
 def save_user(user_id: int, first_name: str):
-    """Insert new user into the database."""
     requests.post(
         f"{SUPABASE_URL}/rest/v1/users",
         headers={**supabase_headers(), "Prefer": "ignore-duplicates"},
@@ -100,11 +98,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         save_user(user_id, first_name)
         await update.message.reply_text(
-            f"👋 Welcome to Kinbot, I am your friendly asst here to save you $$$\n\n"
-            "Please input your links in the following format (up to 5):\n\n"
-            "https://s.shopee.sg/xxxxx\n"
-            "https://s.shopee.sg/xxxxx\n"
-            "https://s.shopee.sg/xxxxx"
+            "⚡ Kinbot activated.\n"
+            "Send me up to 5 Shopee links each time.\n\n"
+            "Exclusive vouchers apply to:\n"
+            "• Blue cashback label items\n"
+            "• Minimum spend required"
         )
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -114,22 +112,33 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     links = find_shopee_links(message.text)
     if not links:
+        await message.reply_text(
+            "Kinbot specialises in Shopee link conversions. "
+            "Please send a valid link or you can speak to the real Kin at @thegoodlist 😊"
+        )
         return
 
     if len(links) > 5:
         await message.reply_text("⚠️ Please send up to 5 links at a time!")
         return
 
+    await message.reply_text("⏳ Converting your link...")
+
     reply_lines = []
     for link in links:
         affiliate_link = convert_to_affiliate_link(link)
         if affiliate_link:
-            reply_lines.append(f"🛍️ {affiliate_link}")
+            reply_lines.append(affiliate_link)
         else:
             reply_lines.append(f"⚠️ Could not convert: {link}")
 
     if reply_lines:
-        await message.reply_text("Happy shopping! 🛍️\n\n" + "\n\n".join(reply_lines))
+        converted = "\n\n".join(reply_lines)
+        await message.reply_text(
+            f"— link converted —\n\n"
+            f"{converted}\n\n"
+            "If you have more links, send it to me when you are ready. I've got you 😉"
+        )
 
 # ── Main ─────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
