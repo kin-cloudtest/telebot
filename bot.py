@@ -8,12 +8,41 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, CommandHandler, filters, ContextTypes
 
 # ── Config ───────────────────────────────────────────────────────────────────
-TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
+TELEGRAM_TOKEN  = os.environ["TELEGRAM_TOKEN"]
 SHOPEE_APP_ID   = os.environ["SHOPEE_APP_ID"]
 SHOPEE_SECRET   = os.environ["SHOPEE_SECRET"]
+SUPABASE_URL    = os.environ["SUPABASE_URL"]
+SUPABASE_KEY    = os.environ["SUPABASE_KEY"]
 
-SHOPEE_API_URL = "https://open-api.affiliate.shopee.sg/graphql"
+SHOPEE_API_URL  = "https://open-api.affiliate.shopee.sg/graphql"
 
+# ── Supabase Helpers ─────────────────────────────────────────────────────────
+def supabase_headers() -> dict:
+    return {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json"
+    }
+
+def is_returning_user(user_id: int) -> bool:
+    """Check if user already exists in the database."""
+    res = requests.get(
+        f"{SUPABASE_URL}/rest/v1/users?user_id=eq.{user_id}&select=user_id",
+        headers=supabase_headers(),
+        timeout=10
+    )
+    return len(res.json()) > 0
+
+def save_user(user_id: int, first_name: str):
+    """Insert new user into the database."""
+    requests.post(
+        f"{SUPABASE_URL}/rest/v1/users",
+        headers={**supabase_headers(), "Prefer": "ignore-duplicates"},
+        json={"user_id": user_id, "first_name": first_name},
+        timeout=10
+    )
+
+# ── Shopee Affiliate API ─────────────────────────────────────────────────────
 def generate_auth_header(app_id: str, secret: str, payload: str) -> dict:
     timestamp = str(int(time.time()))
     raw = f"{app_id}{timestamp}{payload}{secret}"
@@ -37,7 +66,6 @@ def convert_to_affiliate_link(original_url: str) -> str | None:
     }}
     """
     body = json.dumps({"query": query}, separators=(',', ':'))
-
     try:
         headers = generate_auth_header(SHOPEE_APP_ID, SHOPEE_SECRET, body)
         response = requests.post(SHOPEE_API_URL, data=body, headers=headers, timeout=15)
@@ -60,13 +88,24 @@ def find_shopee_links(text: str) -> list[str]:
 
 # ── Telegram Handlers ────────────────────────────────────────────────────────
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "👋 Welcome to Kinbot, I am your friendly asst here to save you $$$\n\n"
-        "Please input your links in the following format (up to 5):\n\n"
-        "https://s.shopee.sg/xxxxx\n"
-        "https://s.shopee.sg/xxxxx\n"
-        "https://s.shopee.sg/xxxxx"
-    )
+    user = update.effective_user
+    user_id = user.id
+    first_name = user.first_name or "there"
+
+    if is_returning_user(user_id):
+        await update.message.reply_text(
+            f"👋 Welcome back, {first_name}! Great to see you again.\n\n"
+            "Send me your Shopee links and I'll convert them for you 🛍️"
+        )
+    else:
+        save_user(user_id, first_name)
+        await update.message.reply_text(
+            f"👋 Welcome to Kinbot, I am your friendly asst here to save you $$$\n\n"
+            "Please input your links in the following format (up to 5):\n\n"
+            "https://s.shopee.sg/xxxxx\n"
+            "https://s.shopee.sg/xxxxx\n"
+            "https://s.shopee.sg/xxxxx"
+        )
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.message
