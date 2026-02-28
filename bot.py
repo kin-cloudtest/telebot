@@ -41,6 +41,14 @@ def save_user(user_id: int, first_name: str):
         timeout=10
     )
 
+def log_request(user_id: int, original_url: str, converted_url: str):
+    requests.post(
+        f"{SUPABASE_URL}/rest/v1/requests",
+        headers=supabase_headers(),
+        json={"user_id": user_id, "original_url": original_url, "converted_url": converted_url},
+        timeout=10
+    )
+
 # ── Shopee Affiliate API ─────────────────────────────────────────────────────
 def generate_auth_header(app_id: str, secret: str, payload: str) -> dict:
     timestamp = str(int(time.time()))
@@ -126,6 +134,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         affiliate_link = convert_to_affiliate_link(link)
         if affiliate_link:
             reply_lines.append(affiliate_link)
+            log_request(update.effective_user.id, link, affiliate_link)
         else:
             reply_lines.append(f"⚠️ Could not convert: {link}")
 
